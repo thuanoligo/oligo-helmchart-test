@@ -1,0 +1,194 @@
+# yaml-language-server: $schema=values.schema.json
+
+imagePullSecret:
+  # Set to false if image is retrieved from a registry that doesn't require pull secret
+  # When set to false - all other attributes are meaningless
+  required: true
+
+  # When set to true - it will create a pull secret using username and password below
+  # When set to false - it will expect a secret with given name below to be available within the cluster
+  create: true
+
+  # This value is a must in order to pull the image from a private repository. We use helm
+  # to create a docker formatted json, encoded in base64.
+  # In case you want use an existing value (perhaps created via "kubectl create secret docker-registry ...")
+  # please mark "create" above as false
+  username: ""
+  password: ""
+
+  # override the default name of the pull secret
+  # If not set and create is true, a name is generated using the fullname template
+  # If you change this value, make sure to also update the name under imagePullSecrets in the sensorOverrides
+  name: ""
+
+nativeRun: false
+
+controllerManager:
+  kubeRbacProxy:
+    image:
+      repository: oligosecurity/kube-rbac-proxy
+      tag: 0.18.0
+    resources:
+      limits:
+        memory: 128Mi
+      requests:
+        cpu: 5m
+        memory: 64Mi
+        ephemeral-storage: 100Mi
+
+  deleteCrdJob:
+    image:
+      repository: alpine/kubectl
+      tag: 1.34.1
+
+  chartOverrides:
+    repository: ""
+    repositoryName: ""
+    name: ""
+    version: ""
+
+  manager:
+    highLoadMonitoring:
+      cpuThreshold: 120 # Core percentage threshold (100% is one core).
+      memoryThreshold: 80 # Memory percentage out of memory limits.
+      interval: 1m
+
+    debugMode: false
+    remoteWriteMetricsInterval:
+      minimal: 15m
+      low: 5m
+      medium: 2m
+      # Grafana's dashboard refresh rate is 30s, so we don't need to send metrics more frequently than that, other than it tests where we get the metrics result from the fake-gateway
+      high: 1m
+      critical: 30s
+    remoteWriteMetricsDirectly: true
+    proxyEnvVars: []
+    image:
+      repository: oligosecurity/operator
+      tag: ""
+    resources:
+      limits:
+        cpu: 250m
+        memory: 256Mi
+      requests:
+        cpu: 10m
+        memory: 128Mi
+        ephemeral-storage: 100Mi
+  replicas: 1
+  tolerations: []
+  # An array of additional annotations to be applied to the operator service account
+  serviceAccountAnnotations: {}
+  nodeSelector: {}
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: kubernetes.io/arch
+                operator: In
+                values:
+                  - amd64
+                  - arm64
+                  - ppc64le
+                  - s390x
+              - key: kubernetes.io/os
+                operator: In
+                values:
+                  - linux
+
+  clientId: ""
+  clusterName: ""
+  # This flag is needed for seeing oligo logs in klogsearch (pod logs).
+  logToStdout: true
+  logOnlyInfoToStdout: true
+  # Log to external file. If set to true, the log file path must be set.
+  logToExternalFile: true
+  externalLogFilePath: "/var/activity.log"
+  externalDebugLogFilePath: "/var/debug_activity.log"
+  externalLogFileMaxSize: 10 # In MB
+  exposePprof: false
+  gateway:
+    url: https://gateway.oligo.security
+    apiVersion: v2
+    pollerEnabled: true
+    pollerInterval: "5m"
+    apiKey: ""
+    # Create the secret using the following command:
+    # ```bash
+    # kubectl create secret generic oligo-apikey --from-literal apikey=<your-api-key>
+    # ```
+    apiKeySecretName: "oligo-apikey"
+  prometheus:
+    clientServicePort: 9090
+    oligoServicePort: 9091
+  httpsDisableKeepAlives: false # Disable keep-alive for HTTPS connections.
+  extraVolumes: []
+  # # Example
+  # extraVolumes:
+  #   - name: example-volume
+  #     configMap:
+  #       name: example-configmap
+
+  extraVolumeMounts: []
+  # # Example
+  # extraVolumeMounts:
+  #   - name: example-volume
+  #     readOnly: true
+  #     mountPath: /var/run/secrets/example
+
+  persistence:
+    enabled: false
+    dumpInterval: 15m
+
+kubernetesClusterDomain: cluster.local
+
+sensorRbac:
+  serviceAccount:
+    # These names are coupled to sensor chart, never change this
+    prometheus: "oligo-prometheus"
+    fluent-bit: "oligo-fluentbit"
+    scanner: "oligo-scanner"
+    sensor: "oligo-sensor"
+
+sensorOverrides: {}
+
+commonLabels: {} # Add additional labels to all operator resources
+
+sendProfilesToPyroscope:
+  constantProfiling:
+    # If enabled, the sensor will send profiles to Pyroscope every rate interval
+    enabled: true
+    host: "" # Use only if you want to send to custom pyroscope host. Otherwise, it will send to gateway.
+    rate: "15m" # Sampling and uploading rate (pyroscope SDK uses the same value for both)
+    blockProfileRate: 0 # Sample about 1 blocking event per [rate] nanoseconds blocked. 0 means disabled.
+    mutexProfileRate: 0 # Sample ~1 out of [rate] contention events. 0 means disabled.
+
+metricsService:
+  ports:
+    - name: https
+      port: 8443
+      protocol: TCP
+      targetPort: https
+  type: ClusterIP
+
+fluent-bit:
+  enabled: true # Set to false will make fluent-bit to be disabled in the operator, and no logs will be sent to the gateway or coralogix
+  logLevel: warn
+  dbPath: /var/log/fluentbit-tail.db
+  output:
+    stdout:
+      # In "fluent bit as subprocess" you will not see the logs in stdout using this flag
+      enabled: false
+    coralogix:
+      enabled: true
+      sendToGateway: true
+      privateKey: ""
+
+# Redirect HTTPS traffic through a proxy.
+httpsProxyConfiguration:
+  enabled: false # Should the components use a proxy.
+
+  url: "" # URL to use as a proxy for outbound HTTPS traffic.
+  noProxy: "" # Comma-separated list of addresses to not use a proxy for.
+
+  caCertificate: "" # Proxy CA certificate. Required in SSL inspect proxies. PEM format

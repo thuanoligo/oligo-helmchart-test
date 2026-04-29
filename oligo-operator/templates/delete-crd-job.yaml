@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: delete-oligo-crd
+  annotations:
+    "helm.sh/hook": pre-delete
+    "helm.sh/hook-weight": "-5"
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed
+  labels:
+  {{- include "oligo-operator.labels" . | nindent 4 }}
+spec:
+  ttlSecondsAfterFinished: 0
+  template:
+    metadata:
+      labels:
+      {{- include "oligo-operator.labels" . | nindent 8 }}
+    spec:
+      tolerations:
+      {{- include "oligo-operator.tolerations" . | nindent 8 }}
+      serviceAccountName: {{ include "oligo-operator.serviceAccountName" . }}
+      {{- if .Values.imagePullSecret.required }}
+      imagePullSecrets:
+        - name: {{ include "oligo-operator.imagePullSecretName" . }}
+      {{- end }}
+      restartPolicy: Never
+      containers:
+      - name: kubectl
+        image: {{ .Values.controllerManager.deleteCrdJob.image.repository }}:{{ .Values.controllerManager.deleteCrdJob.image.tag }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          kubectl delete oligodeployments.oligo.oligosecurity.io oligo-deployment || true

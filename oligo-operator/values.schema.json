@@ -1,0 +1,759 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "definitions": {
+        "semverAllowEmpty": {
+            "type": "string",
+            "pattern": "^(?:$|(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$)"
+        },
+        "duration": {
+            "type": "string",
+            "pattern": "^((([0-9]+)y)?(([0-9]+)w)?(([0-9]+)d)?(([0-9]+)h)?(([0-9]+)m)?(([0-9]+)s)?(([0-9]+)ms)?|0)$"
+        },
+        "resourceQuantity": {
+            "additionalProperties": false,
+            "properties": {
+                "cpu": {
+                    "type": "string"
+                },
+                "memory": {
+                    "type": "string"
+                },
+                "ephemeral-storage": {
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "toleration": {
+            "description": "The pod this Toleration is attached to tolerates any taint that matches the triple <key,value,effect> using the matching operator <operator>.",
+            "properties": {
+                "effect": {
+                    "description": "Effect indicates the taint effect to match. Empty means match all taint effects. When specified, allowed values are NoSchedule, PreferNoSchedule and NoExecute.",
+                    "type": "string"
+                },
+                "key": {
+                    "description": "Key is the taint key that the toleration applies to. Empty means match all taint keys. If the key is empty, operator must be Exists; this combination means to match all values and all keys.",
+                    "type": "string"
+                },
+                "operator": {
+                    "description": "Operator represents a key's relationship to the value. Valid operators are Exists and Equal. Defaults to Equal. Exists is equivalent to wildcard for value, so that a pod can tolerate all taints of a particular category.",
+                    "type": "string"
+                },
+                "tolerationSeconds": {
+                    "description": "TolerationSeconds represents the period of time the toleration (which must be of effect NoExecute, otherwise this field is ignored) tolerates the taint. By default, it is not set, which means tolerate the taint forever (do not evict). Zero and negative values will be treated as 0 (evict immediately) by the system.",
+                    "type": "integer"
+                },
+                "value": {
+                    "description": "Value is the taint value the toleration matches to. If the operator is Exists, the value should be empty, otherwise just a regular string.",
+                    "type": "string"
+                }
+            },
+            "type": "object"
+        },
+        "resources": {
+            "description": "ResourceRequirements describes the compute resource requirements.",
+            "additionalProperties": false,
+            "properties": {
+                "limits": {
+                    "$ref": "#/definitions/resourceQuantity",
+                    "description": "Limits describes the maximum amount of compute resources allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+                },
+                "requests": {
+                    "$ref": "#/definitions/resourceQuantity",
+                    "description": "Requests describes the minimum amount of compute resources required. If Requests is omitted for a container, it defaults to Limits if that is explicitly specified, otherwise to an implementation-defined value. Requests cannot exceed Limits. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/"
+                }
+            },
+            "type": "object"
+        }
+    },
+    "type": "object",
+    "required": [
+        "imagePullSecret",
+        "controllerManager",
+        "kubernetesClusterDomain",
+        "sensorRbac",
+        "sensorOverrides",
+        "commonLabels",
+        "metricsService",
+        "fluent-bit",
+        "httpsProxyConfiguration",
+        "nativeRun"
+    ],
+    "properties": {
+        "sendProfilesToPyroscope": {
+            "type": "object",
+            "required": [
+                "constantProfiling"
+            ],
+            "properties": {
+                "constantProfiling": {
+                    "type": "object",
+                    "required": [
+                        "enabled",
+                        "host",
+                        "rate",
+                        "blockProfileRate",
+                        "mutexProfileRate"
+                    ],
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "host": {
+                            "type": "string"
+                        },
+                        "rate": {
+                            "type": "string"
+                        },
+                        "blockProfileRate": {
+                            "type": "integer"
+                        },
+                        "mutexProfileRate": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            }
+        },
+        "imagePullSecret": {
+            "type": "object",
+            "required": [
+                "required"
+            ],
+            "properties": {
+                "required": {
+                    "type": "boolean"
+                }
+            },
+            "if": {
+                "properties": {
+                    "required": {
+                        "const": true
+                    }
+                }
+            },
+            "then": {
+                "required": [
+                    "create"
+                ],
+                "properties": {
+                    "create": {
+                        "type": "boolean"
+                    },
+                    "name": {
+                        "type": "string"
+                    }
+                },
+                "if": {
+                    "properties": {
+                        "required": {
+                            "const": true
+                        }
+                    }
+                },
+                "then": {
+                    "if": {
+                        "properties": {
+                            "create": {
+                                "const": true
+                            }
+                        }
+                    },
+                    "then": {
+                        "required": [
+                            "username",
+                            "password"
+                        ],
+                        "properties": {
+                            "username": {
+                                "type": "string",
+                                "minLength": 1
+                            },
+                            "password": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    },
+                    "else": {
+                        "required": [
+                            "name"
+                        ],
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "controllerManager": {
+            "type": "object",
+            "required": [
+                "replicas",
+                "kubeRbacProxy",
+                "manager",
+                "tolerations",
+                "nodeSelector",
+                "affinity",
+                "clientId",
+                "clusterName",
+                "logToStdout",
+                "logToExternalFile",
+                "logOnlyInfoToStdout",
+                "exposePprof",
+                "gateway",
+                "prometheus",
+                "httpsDisableKeepAlives",
+                "deleteCrdJob",
+                "persistence",
+                "chartOverrides"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "chartOverrides": {
+                    "type": "object",
+                    "properties": {
+                        "repository": {
+                            "type": "string"
+                        },
+                        "repositoryName": {
+                            "type": "string"
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "version": {
+                            "$ref": "#/definitions/semverAllowEmpty"
+                        }
+                    }
+                },
+                "kubeRbacProxy": {
+                    "type": "object",
+                    "required": [
+                        "image",
+                        "resources"
+                    ],
+                    "properties": {
+                        "image": {
+                            "type": "object",
+                            "properties": {
+                                "repository": {
+                                    "type": "string"
+                                },
+                                "tag": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "repository",
+                                "tag"
+                            ]
+                        },
+                        "resources": {
+                            "type": "object",
+                            "properties": {
+                                "limits": {
+                                    "type": "object",
+                                    "properties": {
+                                        "memory": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "requests": {
+                                    "type": "object",
+                                    "properties": {
+                                        "cpu": {
+                                            "type": "string"
+                                        },
+                                        "memory": {
+                                            "type": "string"
+                                        },
+                                        "ephemeral-storage": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "manager": {
+                    "type": "object",
+                    "properties": {
+                        "highLoadMonitoring": {
+                            "type": "object",
+                            "required": [
+                                "cpuThreshold",
+                                "memoryThreshold",
+                                "interval"
+                            ],
+                            "properties": {
+                                "cpuThreshold": {
+                                    "type": "integer"
+                                },
+                                "memoryThreshold": {
+                                    "type": "integer"
+                                },
+                                "interval": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "debugMode": {
+                            "type": "boolean"
+                        },
+                        "proxyEnvVars": {
+                            "type": "array",
+                            "items": {
+                                "type": "object"
+                            }
+                        },
+                        "remoteWriteMetricsInterval": {
+                            "type": "object",
+                            "required": [
+                                "minimal",
+                                "low",
+                                "medium",
+                                "high",
+                                "critical"
+                            ],
+                            "properties": {
+                                "minimal": {
+                                    "$ref": "#/definitions/duration"
+                                },
+                                "low": {
+                                    "$ref": "#/definitions/duration"
+                                },
+                                "medium": {
+                                    "$ref": "#/definitions/duration"
+                                },
+                                "high": {
+                                    "$ref": "#/definitions/duration"
+                                },
+                                "critical": {
+                                    "$ref": "#/definitions/duration"
+                                }
+                            }
+                        },
+                        "remoteWriteMetricsDirectly": {
+                            "type": "boolean"
+                        },
+                        "image": {
+                            "type": "object",
+                            "properties": {
+                                "repository": {
+                                    "type": "string"
+                                },
+                                "tag": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "repository",
+                                "tag"
+                            ]
+                        },
+                        "resources": {
+                            "type": "object",
+                            "properties": {
+                                "limits": {
+                                    "type": "object",
+                                    "properties": {
+                                        "memory": {
+                                            "type": "string"
+                                        },
+                                        "cpu": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "requests": {
+                                    "type": "object",
+                                    "properties": {
+                                        "cpu": {
+                                            "type": "string"
+                                        },
+                                        "memory": {
+                                            "type": "string"
+                                        },
+                                        "ephemeral-storage": {
+                                            "type": "string"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "replicas": {
+                    "type": "integer"
+                },
+                "tolerations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/toleration"
+                    }
+                },
+                "nodeSelector": {
+                    "type": "object"
+                },
+                "affinity": {
+                    "type": "object",
+                    "properties": {
+                        "nodeAffinity": {
+                            "type": "object",
+                            "properties": {
+                                "requiredDuringSchedulingIgnoredDuringExecution": {
+                                    "type": "object",
+                                    "properties": {
+                                        "nodeSelectorTerms": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "matchExpressions": {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "object",
+                                                            "properties": {
+                                                                "key": {
+                                                                    "type": "string"
+                                                                },
+                                                                "operator": {
+                                                                    "type": "string"
+                                                                },
+                                                                "values": {
+                                                                    "type": "array",
+                                                                    "items": {
+                                                                        "type": "string"
+                                                                    }
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "dnsConfig": {
+                    "type": "object",
+                    "properties": {
+                        "options": {
+                            "type": "array"
+                        },
+                        "nameservers": {
+                            "type": "array"
+                        },
+                        "searches": {
+                            "type": "array"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "clientId": {
+                    "type": "string"
+                },
+                "clusterName": {
+                    "type": "string"
+                },
+                "logToStdout": {
+                    "type": "boolean"
+                },
+                "logOnlyInfoToStdout": {
+                    "type": "boolean"
+                },
+                "logToExternalFile": {
+                    "type": "boolean"
+                },
+                "persistence": {
+                    "type": "object",
+                    "properties": {
+                        "enabled": {
+                            "type": "boolean"
+                        },
+                        "dumpInterval": {
+                            "$ref": "#/definitions/duration"
+                        }
+                    }
+                },
+                "externalLogFilePath": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "externalDebugLogFilePath": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "externalLogFileMaxSize": {
+                    "type": "integer"
+                },
+                "exposePprof": {
+                    "type": "boolean"
+                },
+                "gateway": {
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string"
+                        },
+                        "apiVersion": {
+                            "type": "string"
+                        },
+                        "pollerEnabled": {
+                            "type": "boolean"
+                        },
+                        "pollerInterval": {
+                            "$ref": "#/definitions/duration"
+                        },
+                        "apiKey": {
+                            "type": "string"
+                        },
+                        "apiKeySecretName": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "url",
+                        "apiVersion",
+                        "pollerEnabled",
+                        "pollerInterval"
+                    ],
+                    "anyOf": [
+                        {
+                            "required": [
+                                "apiKey"
+                            ]
+                        },
+                        {
+                            "required": [
+                                "apiKeySecretName"
+                            ]
+                        }
+                    ]
+                },
+                "prometheus": {
+                    "type": "object",
+                    "properties": {
+                        "clientServicePort": {
+                            "type": "integer"
+                        },
+                        "oligoServicePort": {
+                            "type": "integer"
+                        }
+                    }
+                },
+                "httpsDisableKeepAlives": {
+                    "type": "boolean"
+                },
+                "serviceAccountAnnotations": {
+                    "description": "Additional annotations to apply to the operator ServiceAccount.",
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": [
+                            "string",
+                            "null"
+                        ]
+                    }
+                },
+                "extraVolumes": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "extraVolumeMounts": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "deleteCrdJob": {
+                    "type": "object",
+                    "required": [
+                        "image"
+                    ],
+                    "properties": {
+                        "image": {
+                            "type": "object",
+                            "properties": {
+                                "repository": {
+                                    "type": "string"
+                                },
+                                "tag": {
+                                    "type": "string"
+                                }
+                            },
+                            "required": [
+                                "repository",
+                                "tag"
+                            ]
+                        }
+                    }
+                }
+            }
+        },
+        "kubernetesClusterDomain": {
+            "type": "string"
+        },
+        "sensorRbac": {
+            "type": "object",
+            "properties": {
+                "serviceAccount": {
+                    "type": "object",
+                    "properties": {
+                        "prometheus": {
+                            "type": "string"
+                        },
+                        "fluent-bit": {
+                            "type": "string"
+                        },
+                        "scanner": {
+                            "type": "string"
+                        },
+                        "sensor": {
+                            "type": "string"
+                        }
+                    },
+                    "required": [
+                        "prometheus",
+                        "fluent-bit",
+                        "scanner",
+                        "sensor"
+                    ]
+                }
+            }
+        },
+        "sensorOverrides": {
+            "type": "object"
+        },
+        "commonLabels": {
+            "type": "object"
+        },
+        "metricsService": {
+            "type": "object",
+            "properties": {
+                "ports": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string"
+                            },
+                            "port": {
+                                "type": "integer"
+                            },
+                            "protocol": {
+                                "type": "string"
+                            },
+                            "targetPort": {
+                                "type": "string"
+                            }
+                        },
+                        "required": [
+                            "name",
+                            "port",
+                            "protocol",
+                            "targetPort"
+                        ]
+                    }
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "fluent-bit": {
+            "type": "object",
+            "required": [
+                "enabled",
+                "logLevel",
+                "dbPath",
+                "output"
+            ],
+            "additionalProperties": false,
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "logLevel": {
+                    "type": "string"
+                },
+                "dbPath": {
+                    "type": "string"
+                },
+                "output": {
+                    "type": "object",
+                    "required": [
+                        "stdout",
+                        "coralogix"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "stdout": {
+                            "type": "object",
+                            "required": [
+                                "enabled"
+                            ],
+                            "additionalProperties": false,
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                }
+                            }
+                        },
+                        "coralogix": {
+                            "type": "object",
+                            "required": [
+                                "enabled",
+                                "sendToGateway"
+                            ],
+                            "additionalProperties": false,
+                            "properties": {
+                                "enabled": {
+                                    "type": "boolean"
+                                },
+                                "sendToGateway": {
+                                    "type": "boolean"
+                                },
+                                "privateKey": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "httpsProxyConfiguration": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "enabled": {
+                    "type": "boolean"
+                },
+                "url": {
+                    "type": "string"
+                },
+                "noProxy": {
+                    "type": "string"
+                },
+                "caCertificate": {
+                    "type": "string"
+                }
+            }
+        },
+        "nativeRun": {
+            "type": "boolean"
+        }
+    }
+}

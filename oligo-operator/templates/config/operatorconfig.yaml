@@ -1,0 +1,42 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "oligo-operator.configMapName" . }}
+  labels: 
+    {{- include "oligo-operator.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    {{- if .Values.nativeRun }}
+    gatewayApiKey: {{ .Values.controllerManager.gateway.apiKey }}
+    {{- end }}
+    nativeRun: {{ .Values.nativeRun }}
+    healthProbeBindAddress: ":8081"
+    metricsBindAddress: "127.0.0.1:8080"
+    debugMode: {{ .Values.controllerManager.manager.debugMode }}
+    remoteWriteMetricsDirectly: {{ .Values.controllerManager.manager.remoteWriteMetricsDirectly }}
+    remoteWriteMetricsInterval: {{ .Values.controllerManager.manager.remoteWriteMetricsInterval | toYaml | nindent 6 }}
+    gatewayHost: {{ .Values.controllerManager.gateway.url }}
+    gatewayApiVersion: {{ .Values.controllerManager.gateway.apiVersion }}
+    gateway:
+      pollerEnabled: {{ .Values.controllerManager.gateway.pollerEnabled }}
+      pollerInterval: {{ .Values.controllerManager.gateway.pollerInterval }}
+    exposePprof: {{ .Values.controllerManager.exposePprof }}
+    clientId: {{ .Values.controllerManager.clientId }}
+    clusterName: {{ .Values.controllerManager.clusterName }}
+    sendProfilesToPyroscope: {{ .Values.sendProfilesToPyroscope | toYaml | nindent 6 }}
+    highLoadMonitoring: {{ .Values.controllerManager.manager.highLoadMonitoring | toYaml | nindent 6 }}
+    logToStdout: {{ .Values.controllerManager.logToStdout }}
+    logOnlyInfoToStdout: {{ .Values.controllerManager.logOnlyInfoToStdout }}
+    logToExternalFile: {{ .Values.controllerManager.logToExternalFile }}
+    externalLogFilePath: {{ .Values.controllerManager.externalLogFilePath }}
+    externalDebugLogFilePath: {{ .Values.controllerManager.externalDebugLogFilePath }}
+    externalLogFileMaxSize: {{ .Values.controllerManager.externalLogFileMaxSize }}
+    promClientServicePort: {{ .Values.controllerManager.prometheus.clientServicePort }}
+    promOligoServicePort: {{ .Values.controllerManager.prometheus.oligoServicePort }}
+    fluentBitEnabled: {{ index .Values "fluent-bit" "enabled" }}
+    caCertificate: {{ .Values.httpsProxyConfiguration.caCertificate }}
+    httpsDisableKeepAlives: {{ .Values.controllerManager.httpsDisableKeepAlives }}
+    persistence:
+      enabled: {{ .Values.controllerManager.persistence.enabled }}
+      dumpInterval: {{ .Values.controllerManager.persistence.dumpInterval }}
+    chartOverrides: {{ .Values.controllerManager.chartOverrides | toYaml | nindent 6 }}

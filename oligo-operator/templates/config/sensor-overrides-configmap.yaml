@@ -1,0 +1,9 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: "{{- include "oligo-operator.sensorOverridesConfigmap" . -}}"
+  labels:
+    {{- include "oligo-operator.labels" . | nindent 4 }}
+data: 
+  config.yaml: |
+    {{ .Values.sensorOverrides | toYaml | nindent 4 }}

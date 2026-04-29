@@ -1,0 +1,106 @@
+{{ if index .Values "fluent-bit" "enabled" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: fluent-bit-operator-config-map
+  labels:
+  {{- include "oligo-operator.labels" . | nindent 4 }}
+data:
+# This configuration was agreed with Coralogix, please do not change it, unless you know what you are doing and you have agreed with Coralogix
+  fluent-bit.conf: |-
+    [SERVICE]
+        Daemon          Off
+        Flush           1
+        Log_Level       {{ index .Values "fluent-bit" "logLevel" }}
+        Parsers_File    parsers.conf
+
+    [INPUT]
+        Name                tail
+        tag                 logs
+        {{ if .Values.controllerManager.logToExternalFile }}
+        Read_from_Head      True
+        Path                {{ .Values.controllerManager.externalLogFilePath }}
+        {{ else }}
+        Path                /var/log/pods/${NAMESPACE}_${POD_NAME}_${POD_ID}/${CONTAINER_NAME}/*.log
+        {{ end }}
+        multiline.parser    docker, cri
+        Refresh_Interval    5
+        Skip_Long_Lines     On
+        Mem_Buf_Limit       25MB
+        DB                  {{ index .Values "fluent-bit" "dbPath" }}
+
+    [FILTER]
+        Name    modify
+        Match   *
+        Add     clientId "{{ .Values.controllerManager.clientId }}"
+        Add     clusterName  "{{ .Values.controllerManager.clusterName }}"
+    [FILTER]
+        name          parser
+        Match         *
+        Parser        json
+        key_name      log
+        Reserve_Data  On
+    [FILTER]
+        Name            nest
+        Match           *
+        Operation       lift
+        Nested_under    log
+    [FILTER]
+        Name        nest
+        Match       *
+        Operation   nest
+        Wildcard    *
+        Nest_under  json
+    [FILTER]
+        Name    modify
+        Match   *
+        Add     applicationName "{{ .Values.controllerManager.clientId }}"
+        Add     subsystemName operator
+
+    {{ if index .Values "fluent-bit" "output" "coralogix" "enabled" }}
+    {{- $gatewayHostWithPort := get (urlParse .Values.controllerManager.gateway.url) "host" -}}
+    {{- $gatewayHostSplit := split ":" $gatewayHostWithPort -}}
+    {{- $gatewayHostWithoutPort := $gatewayHostSplit._0 -}}
+    {{ $gatewayPort := $gatewayHostSplit._1 | default "443" }}
+    {{- $pathToCrt := printf "/etc/ssl/certs/%s.crt" $gatewayHostWithoutPort -}}
+
+    [OUTPUT]
+        Name                  http
+        Match                 *
+        TLS                   On
+        {{ if .Values.httpsProxyConfiguration.caCertificate }}
+        TLS.ca_file           {{ $pathToCrt }}
+        {{ end }}
+        TLS.min_version       TLSv1.3
+        {{ if index .Values "fluent-bit" "output" "coralogix" "sendToGateway" }}
+        Host                  {{ $gatewayHostWithoutPort }}
+        Port                  {{ $gatewayPort }}
+        Header                X-Client-Id {{ .Values.clientId }}
+        Header                X-Cluster-Name {{ .Values.clusterName }}
+        Header                X-Oligo-App fluent-bit
+        {{ if .Values.nativeRun }}
+        Header                X-API-Key  {{ .Values.apiKey }}
+        {{ else }}
+        Header                X-API-Key  ${OLIGO_API_KEY}
+        {{ end }}
+        URI                   /v2/{{ .Values.controllerManager.clientId }}/logs
+        TLS.vhost             {{ $gatewayHostWithoutPort }}
+        {{ else }}
+        Host                  https://ingress.coralogix.com
+        Port                  443
+        Header                private_key {{ index .Values "fluent-bit" "output" "coralogix" "privateKey" }}
+        URI                   /logs/rest/singles
+        TLS.vhost             ingress.coralogix.com
+        {{ end }}
+        Format                json_lines
+        compress              gzip
+        Retry_Limit           False
+        net.keepalive         off
+    {{ end }}
+
+    {{ if index .Values "fluent-bit" "output" "stdout" "enabled" }}
+    [OUTPUT]
+        Name                  stdout
+        Match                 *
+    {{ end }}
+{{ end }}

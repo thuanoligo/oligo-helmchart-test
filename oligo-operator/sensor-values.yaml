@@ -1,0 +1,877 @@
+# yaml-language-server: $schema=values.schema.json
+# Default values for Oligo Sensor.
+
+nameOverride: "" # Override the release's name
+fullnameOverride: "" # Override the release's full name
+
+commonLabels: {} # Labels applied on all the resources (not used for selection)
+
+clientId: "" # Client ID
+gatewaySecret: "" # Oligo Gateway Secret
+gatewaySecretName: "" # Name of the K8s secret containing the gateway secret (default: oligo-apikey)
+gatewaySecretFilePath: "" # Path to a file containing the gateway secret. If set, gatewaySecretName and gatewaySecret must be empty.
+
+# Deprecated: use gatewaySecret, gatewaySecretName, and gatewaySecretFilePath instead.
+apiKey: "" # Deprecated, use gatewaySecret
+apiKeySecretName: "" # Deprecated, use gatewaySecretName
+apiKeySecretFilePath: "" # Deprecated, use gatewaySecretFilePath
+clusterName: "" # Cluster name
+
+# The host identifier to be used to identify the host in Oligo Platform for native processes
+# (optional, if not set, the host identifier will be used)
+# Note: if the host identifier include ":" then the image name shown in platform is whatever comes before the ":" and the tag is whatever comes after the ":"
+nativeHostIdentifier: ""
+
+# The monitor mode to use. The default is kubernetes only, but you can also use docker or native for non-k8s environments.
+monitorMode:
+  # - native
+  # - docker
+  # - containerd
+  # - podman
+  - kubernetes
+
+oligoCloudEndpoint: "https://gateway.oligo.security"
+oligoCloudApiVersion: "v2"
+
+image:
+  registry: "" # Registry to pull Oligo's images from
+  pullPolicy: IfNotPresent # Default pull policy for Oligo images
+  tag: "" # Oligo images tag. Overrides the chart's AppVersion
+
+imagePullSecret:
+  # Set to false if image is retrieved from a registry that doesn't require pull secret
+  # When set to false - all other attributes are meaningless
+  required: true
+
+  # When set to true - it will create a pull secret using username and password below
+  # When set to false - it will expect a secret with given name below to be available within the cluster
+  create: true
+
+  # This value is a must in order to pull the image from a private repository. We use helm
+  # to create a docker formatted json, encoded in base64.
+  # In case you want use an existing value (perhaps created via "kubectl create secret docker-registry ...")
+  # please mark "create" above as false
+  username: ""
+  password: ""
+
+  # override the default name of the pull secret
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Redirect HTTPS traffic through a proxy.
+httpsProxyConfiguration:
+  enabled: false # Should the components use a proxy.
+
+  url: "" # URL to use as a proxy for outbound HTTPS traffic.
+  noProxy: "" # Comma-separated list of addresses to not use a proxy for.
+
+  caCertificate: "" # (optional) Proxy CA certificate. Required in SSL inspect proxies. PEM format encoded in base64.
+
+ring: -1
+
+# Common configuration for Oligo services
+common:
+  # This flag is needed for seeing oligo logs in klogsearch (pod logs).
+  logToStdout: true
+  logOnlyInfoToStdout: true
+
+  filesWithDebugLogs: []
+
+  # Enable coverage monitoring (reporting which nodes and processes are covered)
+  enableCoverageMonitoring: false
+
+  # Enable internal log shipper to send logs to the gateway.
+  internalLogShipper:
+    enabled: true
+    flushInterval: 1s # Interval to flush logs
+    maxLogSendRetries: 5 # Maximum number of retries to send logs
+    retryInterval: 2s # Interval between retries
+    maxLogBatchLen: 1 # Maximum number of logs in a batch
+    maxLogBatchSizeKB: 10 # Maximum size of a log batch in KB
+
+  # Labels to monitor, as set on the k8s pod or docker container.
+  # If empty, all labels are monitored.
+  # The lists are mutually exclusive, if both are set, only the allow list is used.
+  # Note: the filtering works with "containes" operator, so the each string in the list is a substring of the label value.
+  # Note2: This is currently only supported by docker engine in native sensor.
+  labelsToMonitor:
+    # List of labels to monitor.
+    allow: []
+    # List of labels to ignore.
+    block: []
+
+  # Namespaces to monitor.
+  # If empty, all namespaces are monitored.
+  # The lists are mutually exclusive, if both are set, only the allow list is used.
+  namespacesToMonitor:
+    # List of namespaces to monitor. Supports glob patterns (e.g. "*", "prod-*").
+    allow: []
+    # List of namespaces to ignore. Doesn't support glob patterns.
+    block: ["kube-system", "kube-public", "kube-node-lease"]
+
+  # Container names to exclude from monitoring and scanning.
+  # Supports glob patterns (e.g. "istio-proxy", "sidecar-*").
+  # Not supported on native sensor.
+  blocklistedContainerNames: []
+
+  oligoPodsReporting: false
+
+  # Data sent to Oligo Cloud is batched and compressed to reduce network traffic.
+  batching:
+    batchSizeInKB: 512 # The maximum size of a batch in KB.
+    batchInterval: "10s" # The maximum waiting time before sending a batch.
+    batchedChannelSize: 50 # The maximum number of pending batches in a channel.
+
+  sendToGateway: true # Send the metrics through the gateway
+  coralogixPrivateKey: "" # Required if 'sendToGateway' is set to false
+
+  # Relevant only for native sensor.
+  nativeSensorRun: false
+  # Log to external file. If set to true, the log file path must be set.
+  logToExternalFile: true
+  logJSONToStdout: false # If true, the logs will be printed as JSON to stdout. default is false, which means the logs will be printed as human convinient formatted text.
+  externalLogFilePath: "/var/log/oligo/sensor/activity.log"
+  externalDebugLogFilePath: "/var/log/oligo/sensor/debug_activity.log"
+  externalLogFileMaxSize: 10 # In MB
+  exposeClientMetrics: false
+  exposeMetricsServer: false
+  remoteWriteMetricsDirectly: true
+  remoteWriteMetricsInterval:
+    # 0 interval means no remote write
+    minimal: 0s
+    low: 1h
+    medium: 15m
+    # Grafana's dashboard refresh rate is 30s, so we don't need to send metrics more frequently than that, other than it tests where we get the metrics result from the fake-gateway
+    high: 2m
+    critical: 1m
+
+  # Whether to use the whitelist pod spec for the sensor (for workload uid generation)
+  useWhitelistPodSpec: false
+
+  exposePprof: false
+
+  # grpc settings
+  grpcWaitForReady: true
+  grpcConnectionTimeout: 20m
+
+  featureHTTPSThroughCollector: false # Redirect HTTPS traffic through the collector.
+  mTLS:
+    enabled: false
+
+    client:
+      certFile: /etc/identity/client/certificates/client.pem
+      keyFile: /etc/identity/client/keys/client-key.pem
+
+    server:
+      certFile: /etc/identity/server/certificates/server.pem
+      keyFile: /etc/identity/server/keys/server-key.pem
+
+    # Interval to refresh client and server certificates
+    certsReloadInterval: 24h
+    caFile: /etc/pki_service/ca/cacerts.pem
+
+  featureInternetFacing: true
+  featureValidateHTTPSEndpoints: false # Validate that all configured URLs use HTTPS.
+  networkScanInterval: 60m # Interval to scan the k8s network
+
+  podsChunkSize: 500 # Number of pods to process in a single chunk when getting pods from the k8s API.
+
+  highLoadMonitoring:
+    cpuThreshold: 120 # Core percentage threshold (100% is one core).
+    memoryThreshold: 80 # Memory percentage out of memory limits.
+    interval: 1m
+
+  sendProfilesToPyroscope:
+    constantProfiling:
+      # If enabled, the sensor will send profiles to Pyroscope every rate interval
+      enabled: false
+      host: "" # Use only if you want to send to custom pyroscope host. Otherwise, it will send to gateway.
+      rate: "10m" # Sampling and uploading rate (pyroscope SDK uses the same value for both)
+      blockProfileRate: 0 # Sample about 1 blocking event per [rate] nanoseconds blocked. 0 means disabled.
+      mutexProfileRate: 0 # Sample ~1 out of [rate] contention events. 0 means disabled.
+  prometheus:
+    clientServicePort: 9090
+    oligoServicePort: 9091
+
+  # Liveness probe configuration
+  livenessProbe:
+    enabled: false # Disable liveness probes for all components (sensor, collector, scanner)
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    failureThreshold: 3
+    timeoutSeconds: 5
+
+  # Environment variable to pass to all Oligo components
+  # In the format:
+  # extraEnvVars:
+  #   - name: "ENV_VAR_NAME"
+  #     value: "ENV_VAR_VALUE"
+  #   - name: "ANOTHER_ENV_VAR_NAME"
+  #     value: "ANOTHER_ENV_VAR_VALUE"
+  extraEnvVars: []
+
+  dedupLibraries: true # Used only in tests
+
+  httpsDisableKeepAlives: false # Disable keep-alive for HTTPS connections.
+
+  liveConfiguration:
+    enabled: false
+    sensorPollInterval: 5m
+    collectorPollInterval: 5m
+
+  customerSettingsPolling:
+    enabled: false
+
+operator:
+  enabled: false # Is installed with operator
+
+collector:
+  enabled: true
+  image:
+    repository: oligosecurity/collector
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+      ephemeral-storage: 100Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  volumeMounts: []
+  volumes: []
+
+  debugMode: false # Collector debug mode. Do not modify.
+  writeToFile: false
+
+  logLevel: "info"
+  k8sClientLogLevel: "warn"
+
+  customerSettingsPolling:
+    # enabled state is controlled by common.customerSettingsPolling.enabled flag
+    # pollInterval: 0s means poll once on startup and skip periodic polling
+    pollInterval: 1m
+
+scanner:
+  enabled: true
+  image:
+    repository: oligosecurity/scanner
+  resources:
+    limits:
+      memory: 512Mi
+      cpu: 500m
+    requests:
+      cpu: 100m
+      memory: 256Mi
+      ephemeral-storage: 100Mi
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  volumeMounts: []
+  volumes: []
+
+  coverageReportInterval: 15m # Interval to report coverage metrics
+  resetMonitoredTTL: 1h # How long to consider a process monitored since you last received a "MONITORED" state on it
+  scanInterval: 1h # Interval to scan the cluster
+  # Whether to use workloads cache to avoid redundant GetHighestWorkload calls
+  scannerHighestWorkloadCache:
+    enabled: true
+    useCachedValues: true # If false, just logs cache hits/misses without using the cached values
+    # number of entries in the cache
+    cacheSize: 10000
+    # Dont cache pods that are running less than this value (in seconds)
+    minimalPodRuntimeBeforeCachingInSeconds: 60
+  scanRetries: 3
+  sendWorkloadInfo: true
+  workloadInfoChannelSize: 10000
+  sendNamespaceLabelsInWorkflowInfo: true
+  reportPodPeriodically: true
+  sendClusterStatus: true
+  sendContainersMessages: false
+  sendLiveImagesMessages: false
+  verbosePodLogs: false
+  nodesMetricInterval: 15m
+
+  featureScanNodes: false
+  nodeScanInterval: 1h
+
+  logLevel: "info"
+  k8sClientLogLevel: "warn"
+
+sensor:
+  enabled: true
+  privilegedMode: true
+  securityContext: # Only used if privilegedMode is false
+    capabilities:
+      add:
+        - BPF # Introduced in kernel v5.8
+        - PERFMON # Introduced in kernel v5.8
+        - SYS_RESOURCE # Needed for eBPF. Accessing BTF and memlock rlimit but only before kernel 5.11 - after that it becomes limited by cgroup
+        - DAC_READ_SEARCH # Accessing BTF
+        - SYS_PTRACE # Required for accessing /proc/PID/mem and /proc/PID/root
+        - CHECKPOINT_RESTORE # Required for /proc/PID/map_files access in kernels 5.9+
+    seccompProfile:
+      type: Unconfined # No Seccomp (syscall) filtering
+    seLinuxOptions:
+      user: "system_u" # System service
+      role: "system_r" # System service
+      level: "s0" # Default level, no categories
+      type: "spc_t" # Super privileged container
+  image:
+    repository: oligosecurity/oligo-sensor
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 1Gi
+      ephemeral-storage: 5Gi
+    requests:
+      cpu: 300m
+      memory: 1Gi
+      ephemeral-storage: 300Mi
+  priorityClassName: ""
+  nodeSelector: {}
+  tolerations:
+    # Make pods run on ARM64 as well
+    - key: kubernetes.io/arch
+      operator: Equal
+      value: arm64
+      effect: NoSchedule
+    # Make pods run on GKE spot nodes and preemptible nodes
+    - key: "cloud.google.com/gke-spot"
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+    - key: "cloud.google.com/gke-preemptible"
+      operator: Equal
+      value: "true"
+      effect: NoSchedule
+    # Make pods run on Azure spot nodes
+    - key: kubernetes.azure.com/scalesetpriority
+      operator: Equal
+      value: spot
+      effect: NoSchedule
+  affinity: {}
+  podAnnotations: {}
+  volumeMounts: []
+  volumes: []
+
+  # Default strategy to update the DaemonSet
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+  # Time for which kubernetes waits for the sensor pod to terminate gracefully.
+  terminationGracePeriodSeconds: 90
+
+  # Sensor Settings
+  ## Supported languages. Possible values are: [python, java, golang, nodejs, ruby, dotnet, php]
+  frameworks:
+    - python
+    - java
+    - golang
+    - nodejs
+    - dotnet
+    - php
+    - ruby
+
+  maxMonitoredProcesses: 60
+
+  # Monitor each workload only once in the given time window (rate limit instrumentation)
+  oncePerWorkloadPerTimeWindow:
+    enabled: true
+    timeWindow: 10m # max allowed is 24h
+
+    # Allow monitoring multiple instances of the same workload in the same time window.
+    frameworksToNeverSkip:
+      - python
+      - java
+      - php
+      - ruby
+
+  # Each entry is of size 4096 bytes so total cache size is (4096 * FrameworkNumEntries) bytes
+  readingSessionNumCacheEntries:
+    frameworks:
+      python: 4096
+      nodejs: 4096
+      ruby: 4096
+
+  # Higher number means higher priority
+  frameworkPriorities:
+    enabled: true
+    priorities:
+      python: 4
+      java: 4
+      nodejs: 3
+      ruby: 3
+      dotnet: 3
+      golang: 1
+      php: 1
+
+  channels:
+    bpfEventChannelSize: 0
+    highLoadEventChannelSize: 1000
+    midLoadEventChannelSize: 200
+    lowLoadEventChannelSize: 50
+
+    backpressure: false
+
+  programEventDispatcher:
+    defaultEventBufferSize: 100
+    customEventBufferSize: 250
+    numberOfWorkers: 1
+    messageFinalizerBufferSize: 250
+    messageFinalizerWorkers: 1
+
+  programEventConsumer:
+    numberOfWorkers: 1
+
+  logLevel: "info"
+  k8sClientLogLevel: "warn"
+
+  falco:
+    enabled: false
+
+    # The config will be loaded using the `config_files` property, which is set in the `falco.yaml` file to `/etc/falco/config.d/*`.
+    # As this field isn't recursive, we can't change `config_files` in our custom configuration (shouldn't be done anyway)
+    config:
+      rules_files:
+        # Default Falco rules
+        - /etc/falco/falco_rules.yaml
+        # We put our rules in the `rules.d` directory. If you don't want to use all the rules, you should load specifically the rules you do want.
+        - /etc/falco/rules.d
+      container_engines:
+        cri:
+          enabled: true
+          sockets:
+            # Should fit the containerd socket path in sensor
+            - /proc/1/root/run/containerd/containerd.sock
+            - /proc/1/root/run/crio/crio.sock
+            - /proc/1/root/run/k3s/containerd/containerd.sock
+      priority: warning
+      rules:
+        - disable:
+            # This rule pops up in `curl` to gateway, so we disable it
+            rule: "Unexpected UDP Traffic"
+        - disable:
+            # This rule pops up in `curl` to gateway, so we disable it
+            rule: "Read sensitive file untrusted"
+        - disable:
+            # This is a sandbox rule we find spamming, so we disable it
+            rule: "Write below root"
+
+  ## Syft Settings
+  syft:
+    enabled: true
+    # Paths to exclude from syft scanning
+    # Warning: Removing entries here may impact Syft scanning performance.
+    defaultExcludedPaths:
+      - "/etc/*"
+      - "/host/*"
+      - "/media/*"
+      - "/mnt/*"
+      - "/run/*"
+      - "/tmp/*"
+      - "/var/cache/*"
+      - "/var/lib/containerd/*"
+      - "/var/lib/docker/*"
+      - "/var/lib/kubelet/*"
+      - "/var/lib/podman/*"
+      - "/var/log/*"
+      - "/var/run/*"
+      - "/var/spool/*"
+      - "/var/tmp/*"
+    # Additional paths to exclude from syft scanning
+    customExcludedPaths: []
+
+    catalogers:
+      alpm-db-cataloger: true
+      apk-db-cataloger: true
+      dpkg-db-cataloger: true
+      portage-cataloger: true
+      rpm-db-cataloger: true
+      rpm-archive-cataloger: true
+      linux-kernel-cataloger: true
+      python-installed-package-cataloger: true
+      python-package-cataloger: true
+      java-archive-cataloger: true
+      java-pom-cataloger: true
+      java-gradle-lockfile-cataloger: true
+      graalvm-native-image-cataloger: false # We disable this cataloger because it's resource intensive
+      go-module-file-cataloger: true
+      go-module-binary-cataloger: true
+      ruby-gemspec-cataloger: true
+      ruby-installed-gemspec-cataloger: false # We disable this cataloger because it's covered by ruby-gemspec-cataloger
+      ruby-gemfile-cataloger: true
+      javascript-package-cataloger: true
+      javascript-lock-cataloger: true
+      binary-classifier-cataloger: true
+      elf-binary-package-cataloger: true
+      dotnet-deps-cataloger: true
+      dotnet-portable-executable-cataloger: true
+      php-composer-installed-cataloger: true
+      php-pecl-serialized-cataloger: true
+
+    catalogRunTimeout: 30m # Syft run timeout per process
+    retryLimit: 10 # 0 means unlimited retries
+    excludedFSTypes: # List of filesystem types to skip during scanning to avoid blocking on special files
+      - tracefs
+      - debugfs
+    useNonBlockingRead: true
+    # Perform syft scans on filesystem mounts on containerized processes
+    scanMounts: false
+    # Perform syft scans on filesystem mounts on native processes
+    scanNativeMounts: false
+    fsIndexSizeLimit: 500000 # Maximum number of files to index in the fs index (0 = no limit)
+    fsIndexFileSizeLimitMb: 0 # Maximum size in megabytes of the fs index (0 = no limit)
+    javaArchiveRecursiveLimit: 5 # Based on Syft default limits.
+    dedupByOwnership: disabled # Skip child-packages based on file ownership. [disabled, dryRun, enabled]
+    javaArchiveOffloadZipContentToDisk: true # Offload zip file manifest to disk to save memory
+
+  ## BPF
+  bpfGracePeriod: 3m
+  # Run /proc descendant sync for newly monitored processes at most once per this window, batches all PIDs in that window. 0 = sync every time (no limit).
+  monitoredProcessOffspringSyncTimeWindow: 30s
+  bpfShouldEnableStats: false
+  bpfCollectMemoryMetrics: true
+  bpfMapsUtilizationEnabled: false
+  bpfLogCollection:
+    enabled: false
+    matchPatterns:
+      - ".*ERROR.*"
+  bpfEventBufferSizesBytes: # Event buffer sizes must be a power of 2.
+    tracedSyscallEvents: 1048576 # 1MB
+    sampledSyscallEvents: 1048576 # 1MB
+    stacklessSyscallEvents: 1048576 # 1MB
+    signalEvents: 1048576 # 1MB
+    programEvents: 2097152 # 2MB
+    preventionEvents: 1048576 # 1MB
+    fileOpenEvents: 1048576 # 1MB
+    mmapEvents: 1048576 # 1MB
+    commitCredsEvents: 1048576 # 1MB
+
+  ## Event Scheduler — Weighted Round Robin priority scheduling for BPF events.
+  ## When disabled (default), each buffer runs its own consumer goroutines.
+  scheduler:
+    enabled: false
+    numWorkers: 0        # 0 = auto (numWorkersPerCPU * runtime.NumCPU)
+    numWorkersPerCPU: 4  # multiplier when numWorkers is 0
+    cycleSize: 0         # 0 = auto (sum of weights)
+    priorities:
+      critical:
+        weight: 6
+        queueSize: 32768
+      high:
+        weight: 3
+        queueSize: 32768
+      normal:
+        weight: 2
+        queueSize: 32768
+      low:
+        weight: 1
+        queueSize: 32768
+    bufferPriorities:
+      preventionEvents: critical
+      tracedSyscallEvents: high
+      stacklessSyscallEvents: high
+      programEvents: high
+      signalEvents: normal
+      commitCredsEvents: normal
+      fileOpenEvents: normal
+      mmapEvents: normal
+      sampledSyscallEvents: low
+
+  onStartupSchedSwitchDetachDelay: 10m # 0 means never detach
+
+  # Disable detection flags during bpf grace period (like RCE tracing for example) and high load
+  disableDetectionFlagsOnHighLoad: false
+  timeBetweenBpfEventsMs: 53 # 53ms -> ~19 events per second. We use a prime number to try to avoid collisions with periodic tasks.
+  timeBetweenBpfEventsAtStartMs: 200 # 200ms -> 5 events per second. NOTE: This should be greater than timeBetweenBpfEventsMs
+
+  featureDWARFUnwindingArm: false
+  featureDWARFUnwinding:
+    enabled: true
+    frameworks:
+      - java
+  featureJavaEBPF: true
+  featureSymbolsLRUMap: true
+  featureEbpfFallback: true
+
+  # Possible values: -1 means no limit, positive number is the limit in stacks.
+  # This is a global limit for all stacks from a sensor,
+  # each process gets a fraction of this limit the calculation goes by: number of stacks / max monitored process.
+  maxStacksPerMinute: 100
+
+  processWatchInterval: 5s
+  maxContainerMetadataFetchRetries: 3
+  containerMetadataFetchRetryInterval: 3s
+  containerIdGathering:
+    cacheSize: 1024
+    mapCleanupInterval: 30s
+    cacheOnCleanup: true
+
+  stackCacheMaxEntriesInWindow: 2000
+  stackCacheExpiryTTL: "720h"
+  deadProcessRetention: "5s"
+  # The TTL is meant to help mitigate the impact of termination event loss, or event mis-ordering.
+  programRegistryMapTTL: "3h"
+  oligoProcessMarker: "OLIGO_PROCESS"
+
+  highPriorityProcessAttributes: []
+  # Example:
+  # highPriorityProcessAttributes:
+  #   - - attribute: image_name
+  #       value: image:tag        # Processes with this image name will be monitored with high priority
+  #   - - attribute: image_digest
+  #       value: sha256@digest
+  #     - attribute: framework
+  #       value: python           # Processes with this image digest !AND! framework will be monitored with high priority
+  scanProcessMappingDWARFInterval: "30m"
+  containerdSockPath: "/var/run/containerd/containerd.sock"
+
+  # Be aware that the default podman socket here is for root mode podman.
+  # Rootless podman uses a different socket path.
+  # Root socket will detect containers returned by "sudo podman ps" run as root,
+  # Rootless socket will detect containers returned by "podman ps" run as non-root user.
+  podmanSockPath: "unix:///run/podman/podman.sock"
+
+  # Time between sensor reports to scanner
+  coverageReportInterval: 5m
+  containerLifetimeUpdates:
+    enabled: false
+    interval: 30m # Container lifetime updates reporting interval
+  ## Native Sensor
+  useExternalScanner: true
+  useExternalCollector: true
+  customerSettingsPolling:
+    # enabled state is controlled by common.customerSettingsPolling.enabled flag
+    # pollInterval: 0s means poll once on startup and skip periodic polling
+    pollInterval: 1m
+  requireNativeFSCatalog: false
+  periodicNativeFSCataloging: false
+  nativeFSCatalogingInterval: 24h
+
+  ## Python
+  librariesUpdateIntervalDuration: 10m
+  disablePythonWaitForSyft: true
+  featurePythonBuiltinExtraction: true
+  pythonBuiltinExtractionIntervalBase: 1m
+  pythonBuiltinExtractionIntervalMultiplier: 1.5
+  pythonSymbolsCacheSize: 100000
+  pythonSyftTimeout: 0s # How long to wait for syft to run for python-arm-musl processes. 0 means don't wait.
+  ## Java
+  libraryCacheExpirationDuration: "10m"
+  maxLibraryCacheSize: 1000
+  libraryDumpInterval: 30m
+  attachmentDelayInterval: "60s"
+  profilerDumpInterval: "10s"
+  crashloopCheck:
+    enabled: true
+    checkWindow: "6h"
+  javaSymbolsCacheSize: 100000
+  ## Ruby
+  rubyLibrariesSendInterval: 30m
+  rubyInitialLibrariesSendDelay: 5s
+  rubySymbolsCacheSize: 100000
+  ## NodeJS
+  nodeJSFlaglessScanInterval: "30m"
+  shouldUseNodeJSFlaglessExecutedLibs: true
+  nodeHandleMigratedHeapObjects:
+    enabled: true
+    allowDuringFlaglessScan: false
+    sendCreationMetric: false
+  featureNodejsEBPF:
+    enabled: false
+    continueUnwindOnReadError: false
+  featureNodejsUsePerfMap: false
+  featureNodejsExtensiveSymbolization: false
+  nodejsMaxFunctionNameLength: 50
+
+  # Feature Flags
+  ## Monitoring
+  featureRCETracing:
+    enabled: true
+    frameworks:
+      - python
+      - java
+      - ruby
+  featureChildProcessMonitoring:
+    enabled: true
+    frameworks:
+      - python
+      - java
+      - ruby
+  featureNetworkTracing:
+    enabled: false
+    mode: monitored
+    frameworks:
+      - python
+      - java
+      - ruby
+
+  # Syscall Events
+  featureFileOpenTracing:
+    enabled: false
+    mode: monitored # possible values: [monitored / containerized / system_wide] (system_wide is not supported yet)
+    frameworks: []
+    excludedFilePaths: []
+      # Example:
+      #- /etc/hosts
+    excludedFilePathPrefixes: []
+      # Example:
+      # - /tmp/
+    excludedBinaryPaths: []
+      # Example:
+      # - /bin/sleep
+    excludedCmdlines: []
+      # Example:
+      # uname -a
+    excludedImages: []
+      # Example:
+      # - registry: registry.example.com
+      #   repository: redis
+      #   tag: latest
+    filterDirectoryOpen: true
+
+  featureVisibilityMonitoring: true
+  featureDetectionMonitoring: false
+  featureSendBinaryHash: true
+  featureProcMaps: false
+
+  # System Events
+  featureFileOpenMonitoring: true
+  mmapDetectLoadedLibs:
+    enabled: true
+    dataRetentionTime: 7m # When this is 0, sensor will use 3 procwatch intervals + syft timeout
+  featurePeDetection: true
+
+  # Program Events
+  featureProgramEventsFrameworkEnrichment: false
+  featureReportProcessTermination: false
+  # NOTE for native!
+  # When native sensor uses `monitoredMode: native` and system wide enabled only for containerized, sensor won't send program events for the non containerized monitored processes
+  featureSystemWideProgramEvents:
+    enabled: false
+    includeNonContainerized: false
+    useDefaultFiltersOnEmtpyFilters: true
+    excludedWorkloads: []
+    # Example:
+    # excludedWorkloads:
+    #   - name: traefik
+    #     namespace: kube-system
+    excludedImages: []
+      # Example:
+      # excludedImages:
+      # Each field is optional, if not set, it will be ignored
+      #   - registry: registry.example.com
+      #     repository: redis
+      #     tag: latest
+    excludedCmdlines:
+      excludeMatchesOnly: []
+      # excludeMatchesOnly: [ "uname -a" ]
+      excludeMatchesAndChildren: []
+      # excludeMatchesAndChildren: [ "git pull" ]
+    excludedBinaryPaths:
+      excludeMatchesOnly: []
+      # excludeMatchesOnly: [ "/usr/bin/uname" ]
+      excludeMatchesAndChildren: []
+      # excludeMatchesAndChildren: [ "/usr/bin/sensor-helper" ]
+
+  # Signals
+  featureSignalMonitoring: true
+
+  scanProcMapsForNativeLibs: true
+  ## Other
+  onlySbom: false
+  featureSendEnvVarNamesInProgramDetectedEvents:
+    enabled: true
+    sendOnlyNonEmptyEnvVarNames: false
+  limitHighLoadOperations: true
+  sendSensorInfoInterval: 24h
+  experimentalCustomSyscallTracing:
+    frameworks:
+      - python
+      - java
+      - ruby
+    syscalls: []
+  offloadNativeArtifactsToDisk: true
+  featureKillSwitch: # Works only for k8s
+    enabled: false
+    failureThreshold: 30m # collector down time for trigger
+  k8sApiBatchInterval: 500ms # Should be <= ContainerMetadataGatheringRetryInterval
+
+  persistence:
+    enabled: false
+    minDumpInterval: 3m
+    interning: true
+    hooks:
+      periodic: 15m # 0 means disabled
+      highLoad: true
+      syftDone: true
+      panic: false
+
+  # Periodically reclaim memory from kernel page caches, to make container memory usage
+  # metrics reflect our actual consumption. Only relevant for specific environments.
+  reclaimCacheMemory:
+    cgroupV1: true
+    cgroupV2: true
+    interval: 10m
+    memoryHighPercent: 95
+
+  ## Frameworks
+  ### NodeJS
+  executedByPerf: true
+  ### Java
+  noNativeLibs: false
+  shouldMonitorExecuted: true
+  shouldLogClassDirs: false
+  offloadJavaClassFilesToDisk:
+    enabled: true
+    cacheSize: 0 # 0 means to use pebble default (8MB)
+    bloomFilterKeySize: 0
+  javaExtensiveInstrumentation:
+    enabled: false
+    shouldListInternalJars: false
+    shouldCacheJarFiles: false
+    shouldCacheJarType: false
+  cacheListedFilesInJar: false
+  cachePomxmlInJar: true
+  useReadingSessionForJarParsing:
+    inCacheListedFilesInJar: false
+    inListFilesIterator: false
+  ### Go
+  offloadGoFunctionsToDisk: true
+  useMMapForElfSections: true
+
+  prevention:
+    enabled: false
+    rules: [] # Ignored if customer settings polling is enabled
+
+  syftMetadataCustomFields:
+    maxFieldSize: 25
+    python: []
+    java: []
+    nodejs:
+      - "author"
+      - "homepage"
+      - "description"
+    dotnet: []
+    golang: []
+    php: []
+    ruby: []
+    native: []
+
+fluentBit:
+  enabled: false
+  logLevel: warn
+  logFile: /var/log/fluentbit.log
+  dbPath: /var/log/fluentbit-tail.db
+  output:
+    stdout:
+      # In "fluent bit as subprocess" you will not see the logs in stdout using this flag
+      enabled: false
+    coralogix:
+      enabled: false

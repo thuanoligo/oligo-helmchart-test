@@ -1,0 +1,14 @@
+controllerManager:
+  logToStdout: false
+  externalLogFilePath: "/var/log/oligo/operator/activity.log"
+  externalDebugLogFilePath: "/var/log/oligo/operator/debug_activity.log"
+
+nativeRun: true
+
+fluent-bit:
+  # On native run we place the fluent-bit db under the oligo directory, so that we clean it up on easier uninstall and make the install cleaner
+  dbPath: /var/log/oligo/operator/fluentbit-tail-oligo-operator.db
+
+imagePullSecret:
+  # Not relevant for native operator
+  required: false
