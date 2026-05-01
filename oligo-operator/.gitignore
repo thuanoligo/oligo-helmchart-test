@@ -1,0 +1,15 @@
+# Never commit files that may contain secrets
+*-secret-values.yaml
+*.env
+.env.*
+
+# Editor/IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
