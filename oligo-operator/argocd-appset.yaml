@@ -1,0 +1,44 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: oligo-operator
+  namespace: argocd
+spec:
+  goTemplate: true
+  generators:
+    - clusters:
+        selector:
+          matchLabels:
+            oligo-enabled: "true"
+  template:
+    metadata:
+      name: "oligo-operator-{{ .name }}"
+      namespace: argocd
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: default
+      destination:
+        server: "{{ .server }}"
+        namespace: oligo
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+      sources:
+        - repoURL: https://github.com/thuanoligo/oligo-helmchart-test.git
+          targetRevision: main
+          path: oligo-operator/external-secrets
+
+        - repoURL: https://github.com/thuanoligo/oligo-helmchart-test.git
+          targetRevision: main
+          path: oligo-operator
+          helm:
+            valueFiles:
+              - operator-values.yaml
+            parameters:
+              - name: controllerManager.clusterName
+                value: "{{ .name }}"
