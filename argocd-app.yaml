@@ -23,12 +23,12 @@ spec:
     # Source 1: ExternalSecret + SecretStore manifests (plain YAML)
     - repoURL: https://github.com/thuanoligo/oligo-helmchart-test.git  
       targetRevision: main
-      path: oligo-operator/external-secrets
+      path: external-secrets
 
     # Source 2: Oligo Operator Helm chart
     - repoURL: https://github.com/thuanoligo/oligo-helmchart-test.git  
       targetRevision: main
-      path: oligo-operator
+      path: .
       helm:
         valueFiles:
           - operator-values.yaml
