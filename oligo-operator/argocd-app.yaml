@@ -1,0 +1,37 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: oligo-operator
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default  # TODO: Replace with your ArgoCD project
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: oligo-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+
+  # Multi-source: deploy ExternalSecrets first, then the Helm chart
+  sources:
+    # Source 1: ExternalSecret + SecretStore manifests (plain YAML)
+    - repoURL: https://github.com/YOUR_ORG/YOUR_REPO.git  # TODO: Replace with your Git repo
+      targetRevision: main
+      path: oligo-operator/external-secrets
+
+    # Source 2: Oligo Operator Helm chart
+    - repoURL: https://github.com/YOUR_ORG/YOUR_REPO.git  # TODO: Replace with your Git repo
+      targetRevision: main
+      path: oligo-operator
+      helm:
+        valueFiles:
+          - operator-values.yaml
+        parameters:
+          - name: controllerManager.clusterName
+            value: "k3d-thuan-k3d"  # Change per cluster / use ApplicationSet for multi-cluster

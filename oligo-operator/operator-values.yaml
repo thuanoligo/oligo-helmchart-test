@@ -1,16 +1,17 @@
 imagePullSecret:
-  username: "oligocustomer"
-  password: "REDACTED_DOCKER_PAT"
-  name: oligoregcred
+  required: true
+  create: false          # ESO creates the secret via ExternalSecret
+  name: oligoregcred     # Must match target.name in external-secret-imagepull.yaml
 controllerManager:
   clientId: "ec63c360-88d1-4442-8eaa-6c66eb946119"
-  clusterName: "k3d-thuan-k3d"
+  # clusterName is set via ArgoCD helm parameters in argocd-app.yaml
   gateway:
     pollerEnabled: true
     apiVersion: v2
     pollerInterval: 5m
     url: https://gateway.oligo.security
-    apiKey: "REDACTED_API_KEY"
+    apiKey: ""                          # Left empty — secret managed by ESO
+    apiKeySecretName: "oligo-apikey"    # Must match target.name in external-secret-apikey.yaml
   manager:
     image:
       repository: oligosecurity/operator
