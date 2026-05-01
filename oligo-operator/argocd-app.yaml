@@ -9,7 +9,7 @@ spec:
   project: default  # TODO: Replace with your ArgoCD project
   destination:
     server: https://kubernetes.default.svc
-    namespace: oligo-system
+    namespace: oligo
   syncPolicy:
     automated:
       prune: true
@@ -21,12 +21,12 @@ spec:
   # Multi-source: deploy ExternalSecrets first, then the Helm chart
   sources:
     # Source 1: ExternalSecret + SecretStore manifests (plain YAML)
-    - repoURL: https://github.com/YOUR_ORG/YOUR_REPO.git  # TODO: Replace with your Git repo
+    - repoURL: https://github.com/thuanoligo/oligo-helmchart-test.git  
       targetRevision: main
       path: oligo-operator/external-secrets
 
     # Source 2: Oligo Operator Helm chart
-    - repoURL: https://github.com/YOUR_ORG/YOUR_REPO.git  # TODO: Replace with your Git repo
+    - repoURL: https://github.com/thuanoligo/oligo-helmchart-test.git  
       targetRevision: main
       path: oligo-operator
       helm:
